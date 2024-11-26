@@ -1,0 +1,7 @@
+{
+    "events": {
+      "restart": "killall node || true"
+    },
+    "watch": ["server.js"],
+    "ext": "js,json"
+  }
