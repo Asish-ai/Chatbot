@@ -3,6 +3,7 @@ import user from './assets/send.svg';
 
 const form = document.querySelector('form');
 const chatContainer = document.querySelector('#chat_container');
+const inputElement = form.querySelector('textarea'); // Assuming you're using a textarea for input
 
 let loadInterval;
 
@@ -86,17 +87,11 @@ const handleSubmit = async (e) => {
     clearInterval(loadInterval);
     messageDiv.innerHTML = '';
 
-    // Log full response for debugging
-    console.log('Full Response:', response);
-
     if (response.ok) {
       const data = await response.json();
-      console.log('Response Data:', data);
-      
       const parsedData = data.bot ? data.bot.trim() : 'No response from server';
       typeText(messageDiv, parsedData);
     } else {
-      // Try to get error details
       const errorText = await response.text();
       console.error('Error Response:', errorText);
       
@@ -107,10 +102,18 @@ const handleSubmit = async (e) => {
     clearInterval(loadInterval);
     console.error("Detailed Error:", error);
     
-    // More informative error message
     messageDiv.innerHTML = `Sorry, something went wrong: ${error.message}. Please try again.`;
   }
 };
 
-// Add event listener
+// Add event listener for form submission
 form.addEventListener('submit', handleSubmit);
+
+// Add event listener for Enter key
+inputElement.addEventListener('keydown', (e) => {
+  // Check if Enter key is pressed without Shift key
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault(); // Prevent default Enter key behavior
+    form.dispatchEvent(new Event('submit')); // Trigger form submission
+  }
+});
