@@ -76,7 +76,7 @@ const handleSubmit = async (e) => {
   loader(messageDiv);
 
   try {
-    const response = await fetch('https://lisa-r18m.onrender.com', {
+    const response = await fetch('https://lisa-r18m.onrender.com/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
