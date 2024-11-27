@@ -54,6 +54,12 @@ const handleSubmit = async (e) => {
   const formData = new FormData(form);
   const prompt = formData.get('prompt');
   
+  // Validate prompt
+  if (!prompt || prompt.trim() === '') {
+    alert('Please enter a message');
+    return;
+  }
+  
   // Clear input after submission
   form.reset();
   
@@ -69,30 +75,40 @@ const handleSubmit = async (e) => {
   loader(messageDiv);
 
   try {
-    const response = await fetch('http://localhost:5001', {
+    const response = await fetch('http://localhost:5001/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ prompt: yourPrompt })
+      body: JSON.stringify({ prompt: prompt })
     });
 
     clearInterval(loadInterval);
     messageDiv.innerHTML = '';
 
+    // Log full response for debugging
+    console.log('Full Response:', response);
+
     if (response.ok) {
       const data = await response.json();
-      const parsedData = data.bot.trim();
+      console.log('Response Data:', data);
+      
+      const parsedData = data.bot ? data.bot.trim() : 'No response from server';
       typeText(messageDiv, parsedData);
     } else {
-      const errorData = await response.text();
-      throw new Error(errorData.error || 'Something went wrong');
+      // Try to get error details
+      const errorText = await response.text();
+      console.error('Error Response:', errorText);
+      
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
     
   } catch (error) {
     clearInterval(loadInterval);
-    messageDiv.innerHTML = "Sorry, something went wrong. Please try again.";
     console.error("Detailed Error:", error);
+    
+    // More informative error message
+    messageDiv.innerHTML = `Sorry, something went wrong: ${error.message}. Please try again.`;
   }
 };
 

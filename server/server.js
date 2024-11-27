@@ -8,16 +8,9 @@ dotenv.config();
 
 const app = express();
 
-// Comprehensive CORS configuration
+// Very permissive CORS for debugging
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || origin === 'http://localhost:3000' || origin === 'http://localhost:5173') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*', // Be careful, this is not secure for production
   methods: ['POST', 'GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -28,22 +21,26 @@ app.use(cors(corsOptions));
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
 
-// Logging middleware
+// Detailed logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log('Request Body:', req.body);
   next();
 });
 
-// Initialize OpenAI
+// Initialize Groq (using OpenAI library)
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1"
 });
 
-// Dedicated chat endpoint
+// Dedicated chat endpoint with extensive error handling
 app.post('/chat', async (req, res) => {
   try {
     // Validate input
     const { prompt } = req.body;
+    
+    console.log('Received Prompt:', prompt);
     
     if (!prompt || typeof prompt !== 'string') {
       return res.status(400).json({ 
@@ -51,7 +48,7 @@ app.post('/chat', async (req, res) => {
       });
     }
 
-    // Implement conversation context if needed
+    // Conversation messages
     const messages = [
       { 
         role: "system", 
@@ -63,53 +60,49 @@ app.post('/chat', async (req, res) => {
       }
     ];
 
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-  messages: [],
-  response_format: {
-    "type": "text"
-  },
-  temperature: 1,
-  max_tokens: 2048,
-  top_p: 1,
-  frequency_penalty: 0,
-  presence_penalty: 0
-    });
-
-    // Extract and send response
-    const botResponse = response.choices[0].message.content.trim();
-    
-    res.status(200).json({
-      bot: botResponse
-    });
-    
-  } catch (error) {
-    // Comprehensive error handling
-    console.error('OpenAI API Error:', error);
-    
-    if (error.response) {
-      // OpenAI specific error
-      console.error(error.response.status);
-      console.error(error.response.data);
-      
-      return res.status(error.response.status).json({
-        error: 'OpenAI API Error',
-        details: error.response.data
+    // Call Groq API with error logging
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: "llama3-8b-8192", 
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 2048
       });
-    } else if (error instanceof OpenAI.APIError) {
-      // Handle API-specific errors
+    } catch (apiError) {
+      console.error('Groq API Specific Error:', apiError);
       return res.status(500).json({
-        error: 'OpenAI API Error',
-        details: error.message
-      });
-    } else {
-      // Generic server error
-      return res.status(500).json({
-        error: 'Internal Server Error',
-        details: error.message
+        error: 'API Call Failed',
+        details: apiError.message,
+        fullError: apiError
       });
     }
+
+    // Extract and send response
+    if (response && response.choices && response.choices.length > 0) {
+      const botResponse = response.choices[0].message.content.trim();
+      
+      console.log('Bot Response:', botResponse);
+      
+      res.status(200).json({
+        bot: botResponse
+      });
+    } else {
+      console.error('Unexpected API Response Structure:', response);
+      res.status(500).json({
+        error: 'Unexpected response from AI',
+        details: 'No valid response received'
+      });
+    }
+    
+  } catch (error) {
+    // Catch-all error handler
+    console.error('Unexpected Server Error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      details: error.message,
+      fullError: error
+    });
   }
 });
 
@@ -127,5 +120,5 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(5001, () => console.log('server is running on port http://localhost:5001'));
-  
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, () => console.log(`Server is running on port http://localhost:${PORT}`));
